@@ -1,6 +1,3 @@
-# Confluent Platform (cp-all-in-one)
-- **Source:** https://github.com/confluentinc/cp-all-in-one
-
 # Setup
 - **Remove interceptor class**  
     - Do not set Confluent interceptor classes—these are not in the community image.
@@ -39,12 +36,31 @@ docker compose up -d alertmanager
 docker compose up -d control-center
 ```
 
-# Access to KsqlDB via Ksql-CLI
-To open an interactive ksqlDB CLI session connected to your ksqlDB server, run:
-```sh
-docker exec -it ksqldb-cli ksql --config-file /etc/ksqldb-cli.properties http://ksqldb-server:8088
-
-docker exec -it ksqldb-cli ksql --config-file /etc/ksqldb-cli.properties http://ksqldb-server:8088 -e "SHOW STREAMS;"
+# Expose Kafka to Public Network
+- **Turn on Ngrok tunnel**
+```bash
+ngrok tcp 9094 
 ```
 
+- **Update broker configuration in `docker-compose.yml`**
+    - Must update **Ngrok endpoint**
+```properties
+# 1. Identity: Maps custom tag to protocol
+KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,NGROK:PLAINTEXT'
+# 2. Port: Port Kafka opens to listen for traffic
+KAFKA_LISTENERS: 'PLAINTEXT://broker:29092,CONTROLLER://broker:29093,PLAINTEXT_HOST://0.0.0.0:9092,NGROK://0.0.0.0:9094'
+# 3. Address: The URL/Port Kafka tells clients to use
+KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://broker:29092,PLAINTEXT_HOST://localhost:9092,NGROK://0.tcp.ap.ngrok.io:10517'
+```
 
+- **Recreate docker to reflect configuration**
+```bash
+docker compose up -d --force-recreate
+```
+
+- **Test via Kcat**
+    - Must update **Ngrok endpoint**
+    - Might need to use **own hotstpot wifi**
+```shell
+kcat -b 0.tcp.ap.ngrok.io:10517 -L
+```
